@@ -19,10 +19,12 @@ public class SnakeGame extends JFrame {
     private Point food;
     private int score;
     private boolean paused;
+    boolean gameStarted;
     private Image bufferImage;
     private Graphics bufferGraphics;
     private JLayeredPane layeredPane;
     private PauseScreen pauseScreen;
+    private StartScreen startScreen;
 
     public SnakeGame() {
         setTitle("Snake Game");
@@ -31,15 +33,21 @@ public class SnakeGame extends JFrame {
 
         direction = Direction.RIGHT;
         snake = new ArrayList<>();
-        snake.add(new Point(5, 5)); // Anfangsposition der Schlange
+        snake.add(new Point(5, 5)); // Initial snake position
 
         spawnFood();
 
         score = 0;
         paused = false;
+        gameStarted = false;
 
         layeredPane = new JLayeredPane();
         setContentPane(layeredPane);
+
+        startScreen = new StartScreen(this);
+        layeredPane.add(startScreen, JLayeredPane.POPUP_LAYER);
+        startScreen.setBounds(0, 0, getWidth(), getHeight());
+        startScreen.setVisible(true);
 
         pauseScreen = new PauseScreen(this);
         layeredPane.add(pauseScreen, JLayeredPane.POPUP_LAYER);
@@ -59,16 +67,14 @@ public class SnakeGame extends JFrame {
         timer.start();
     }
 
-    // Die Hauptschleife des Spiels, die den Spielzustand aktualisiert und neu zeichnet
     private void gameLoop() {
-        if (!paused) {
+        if (gameStarted && !paused) {
             moveSnake();
             checkCollisions();
             repaint();
         }
     }
 
-    // Bewegt die Schlange basierend auf der aktuellen Richtung
     private void moveSnake() {
         Point head = snake.get(0);
         Point newHead;
@@ -87,7 +93,7 @@ public class SnakeGame extends JFrame {
                 newHead = new Point((head.x + 1) % GRID_SIZE, head.y);
                 break;
             default:
-                throw new IllegalStateException("Unerwarteter Wert: " + direction);
+                throw new IllegalStateException("Unexpected value: " + direction);
         }
 
         snake.add(0, newHead);
@@ -100,16 +106,14 @@ public class SnakeGame extends JFrame {
         }
     }
 
-    // Zeigt den Pause-Bildschirm an
     private void showPauseScreen() {
         pauseScreen.setBounds(0, 0, getWidth(), getHeight());
         pauseScreen.setVisible(true);
         togglePauseScreen();
-        layeredPane.moveToFront(pauseScreen); // Pause-Bildschirm in den Vordergrund bringen
-        repaint(); // Das Spiel neu zeichnen, nachdem der Pause-Bildschirm sichtbar gemacht wurde
+        layeredPane.moveToFront(pauseScreen);
+        repaint();
     }
 
-    // Überprüft auf Kollisionen, wie z.B. ob die Schlange mit sich selbst oder mit der Wand kollidiert
     private void checkCollisions() {
         Point head = snake.get(0);
 
@@ -125,7 +129,6 @@ public class SnakeGame extends JFrame {
         }
     }
 
-    // Platziert zufällig einen neuen Futterpunkt auf dem Spielfeld
     private void spawnFood() {
         Random random = new Random();
         int x, y;
@@ -138,7 +141,6 @@ public class SnakeGame extends JFrame {
         food = new Point(x, y);
     }
 
-    // Überprüft, ob das Futter auf der Schlange liegt
     private boolean isFoodOnSnake(int x, int y) {
         for (Point point : snake) {
             if (point.x == x && point.y == y) {
@@ -148,8 +150,16 @@ public class SnakeGame extends JFrame {
         return false;
     }
 
-    // Verarbeitet Tastenanschläge des Spielers
     private void handleKeyPress(int keyCode) {
+        if (!gameStarted) {
+            // Start the game on space key press
+            if (keyCode == KeyEvent.VK_SPACE) {
+                gameStarted = true;
+                startScreen.setVisible(false);
+                return;
+            }
+        }
+
         switch (keyCode) {
             case KeyEvent.VK_UP:
                 if (direction != Direction.DOWN) {
@@ -177,20 +187,21 @@ public class SnakeGame extends JFrame {
         }
     }
 
-    // Zeigt oder verbirgt den Pause-Bildschirm
     void togglePauseScreen() {
         paused = !paused;
-        pauseScreen.setVisible(paused);
-        repaint(); // Das Spiel neu zeichnen, nachdem der Pause-Bildschirm angezeigt/ausgeblendet wurde
+        if (paused) {
+            showPauseScreen();
+        } else {
+            pauseScreen.setVisible(false);
+            repaint();
+        }
     }
 
-    // Zeigt das Spiel-Ende-Fenster und beendet das Spiel
     private void gameOver() {
-        JOptionPane.showMessageDialog(this, "Spiel vorbei! Dein Punktestand: " + score, "Spiel vorbei", JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(this, "Game Over! Your score: " + score, "Game Over", JOptionPane.INFORMATION_MESSAGE);
         System.exit(0);
     }
 
-    // Zeichnet das Spielfeld und seine Elemente
     @Override
     public void paint(Graphics g) {
         if (bufferImage == null) {
@@ -201,38 +212,33 @@ public class SnakeGame extends JFrame {
         Graphics offScreenBuffer = bufferImage.getGraphics();
         offScreenBuffer.clearRect(0, 0, getWidth(), getHeight());
 
-        // Schachbrettmuster mit weniger intensiven Farben zeichnen
         for (int i = 0; i < GRID_SIZE; i++) {
             for (int j = 0; j < GRID_SIZE; j++) {
-                // Farbe der Quadrate abwechseln
                 if ((i + j) % 2 == 0) {
-                    offScreenBuffer.setColor(new Color(200, 200, 200)); // Hellgrau
+                    offScreenBuffer.setColor(new Color(200, 200, 200));
                 } else {
-                    offScreenBuffer.setColor(new Color(150, 150, 150)); // Dunkelgrau
+                    offScreenBuffer.setColor(new Color(150, 150, 150));
                 }
 
                 offScreenBuffer.fillRect(i * TILE_SIZE, j * TILE_SIZE, TILE_SIZE, TILE_SIZE);
             }
         }
 
-        offScreenBuffer.setColor(new Color(50, 200, 50)); // Weniger intensives Grün
+        offScreenBuffer.setColor(new Color(50, 200, 50));
         for (Point point : snake) {
             offScreenBuffer.fillRect(point.x * TILE_SIZE, point.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
         }
 
-        offScreenBuffer.setColor(new Color(200, 50, 50)); // Weniger intensives Rot
+        offScreenBuffer.setColor(new Color(200, 50, 50));
         offScreenBuffer.fillRect(food.x * TILE_SIZE, food.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
 
-        // Punktestand auf dem Bildschirm anzeigen
         offScreenBuffer.setColor(Color.BLACK);
         Font font = new Font("Serif", Font.PLAIN, 15);
         offScreenBuffer.setFont(font);
-        offScreenBuffer.drawString("Punktestand: " + score, 10, 50);
+        offScreenBuffer.drawString("Score: " + score, 10, 50);
 
-        // Den Offscreen-Buffer auf den Bildschirm zeichnen
         g.drawImage(bufferImage, 0, 0, this);
 
-        // Den Offscreen-Buffer freigeben, um Ressourcen freizugeben
         offScreenBuffer.dispose();
     }
 
@@ -240,13 +246,14 @@ public class SnakeGame extends JFrame {
         SwingUtilities.invokeLater(() -> new SnakeGame().setVisible(true));
     }
 
-    // Startet ein neues Spiel, indem der Schlangen-Array gelöscht und die Initialposition der Schlange festgelegt wird
     public void startNewGame() {
         snake.clear();
-        snake.add(new Point(5, 5)); // Anfangsposition der Schlange
+        snake.add(new Point(5, 5));
         spawnFood();
         score = 0;
         paused = false;
+        gameStarted = false;
+        startScreen.setVisible(true);
         repaint();
     }
 }
@@ -258,15 +265,15 @@ class PauseScreen extends JPanel {
         this.game = game;
         setLayout(new BorderLayout());
 
-        JButton resumeButton = new JButton("Fortsetzen");
-        resumeButton.setPreferredSize(new Dimension(150, 50)); // Gewünschte Größe setzen
+        JButton resumeButton = new JButton("Resume");
+        resumeButton.setPreferredSize(new Dimension(150, 50));
         resumeButton.addActionListener(e -> {
             game.togglePauseScreen();
             setVisible(false);
         });
 
-        JButton newGameButton = new JButton("Neues Spiel");
-        newGameButton.setPreferredSize(new Dimension(150, 50)); // Gewünschte Größe setzen
+        JButton newGameButton = new JButton("New Game");
+        newGameButton.setPreferredSize(new Dimension(150, 50));
         newGameButton.addActionListener(e -> {
             game.togglePauseScreen();
             setVisible(false);
@@ -276,11 +283,35 @@ class PauseScreen extends JPanel {
         JPanel buttonPanel = new JPanel();
         buttonPanel.add(resumeButton);
         buttonPanel.add(newGameButton);
-        buttonPanel.setOpaque(true); // Das Panel undurchsichtig machen
+        buttonPanel.setOpaque(true);
 
         add(buttonPanel, BorderLayout.CENTER);
 
-        // Hintergrundfarbe mit Alpha für Transparenz setzen
-        setBackground(new Color(169, 169, 169, 150)); // Alpha-Wert anpassen
+        setBackground(new Color(169, 169, 169, 150));
+    }
+}
+
+class StartScreen extends JPanel {
+    private final SnakeGame game;
+
+    public StartScreen(SnakeGame game) {
+        this.game = game;
+        setLayout(new BorderLayout());
+
+        JButton startButton = new JButton("Start Game");
+        startButton.setPreferredSize(new Dimension(150, 50));
+        startButton.addActionListener(e -> {
+            game.startNewGame();
+            setVisible(false);
+            game.gameStarted = true;
+        });
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(startButton);
+        buttonPanel.setOpaque(true);
+
+        add(buttonPanel, BorderLayout.CENTER);
+
+        setBackground(new Color(169, 169, 169, 150));
     }
 }
